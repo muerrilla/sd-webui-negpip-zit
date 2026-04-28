@@ -148,7 +148,10 @@ class Script(modules.scripts.Script):
                 tokenizer = p.sd_model.text_processing_engine_gemma.tokenize_line
                 self.modeltype = modeltype = "ZImage"
                 input = SdConditioning([""], width=p.width, height=p.height)
-                p.sd_model.text_processing_engine_gemma(input)
+                # p.sd_model.text_processing_engine_gemma(input)
+                # this, because this one does device management automatically.
+                # but seems to cause too much model-moving.
+                p.sd_model.get_learned_conditioning(input)
             elif hasattr(p.sd_model, "text_processing_engine_l"):
                 tokenizer = p.sd_model.text_processing_engine_l.tokenize_line
             else:
@@ -191,7 +194,9 @@ class Script(modules.scripts.Script):
                                 textweights.append([text,weight])
                                 flag = True
                         padtextweight.append([padd,textweights])
-                        tokens, tokensnum = tokenizer(sep_prompt)
+                        # tokens, tokensnum = tokenizer(sep_prompt)
+                        tokensnum = sum([len(chunk.tokens) for chunk in tokenizer(sep_prompt)]) 
+                        # or we could just pass 0 or skip this or something since tokens were not counted (tokensnum stayed at 0) in the tokenizer at the time anyway.
                         padd = tokensnum // 75 + 1 + padd
                     stepout.append([step,padtextweight])
                 output.append(stepout)
@@ -298,8 +303,11 @@ class Script(modules.scripts.Script):
         def calcsets(A, B):
             return A // B if A % B == 0 else A // B + 1
 
-        self.conlen = calcsets(tokenizer(p.prompts[0])[1],75)
-        self.unlen = calcsets(tokenizer(p.negative_prompts[0])[1],75)
+        # self.conlen = calcsets(tokenizer(p.prompts[0])[1],75)
+        self.conlen = calcsets(sum([len(chunk.tokens) for chunk in tokenizer(p.prompts[0])]),75)
+        # self.unlen = calcsets(tokenizer(p.negative_prompts[0])[1],75)
+        self.unlen = calcsets(sum([len(chunk.tokens) for chunk in tokenizer(p.negative_prompts[0])]),75)
+        # this also doesn't seem to affect ZImage, we're just escaping from the error...
 
         if not flag:
             self.active = False
@@ -792,8 +800,13 @@ def hook_forward_f_z(self, module):
         xq = module.q_norm(xq)
         xk = module.k_norm(xk)
 
-        xq = JointAttention.apply_rotary_emb(xq, freqs_cis=freqs_cis)
-        xk = JointAttention.apply_rotary_emb(xk, freqs_cis=freqs_cis)
+        def apply_rotary_emb(x_in: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
+            t_ = x_in.reshape(*x_in.shape[:-1], -1, 1, 2)
+            t_out = freqs_cis[..., 0] * t_[..., 0] + freqs_cis[..., 1] * t_[..., 1]
+            return t_out.reshape(*x_in.shape)
+
+        xq = apply_rotary_emb(xq, freqs_cis=freqs_cis)
+        xk = apply_rotary_emb(xk, freqs_cis=freqs_cis)
 
         n_rep = module.n_local_heads // module.n_local_kv_heads
         if n_rep >= 1:
