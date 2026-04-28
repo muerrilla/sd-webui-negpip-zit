@@ -66,6 +66,8 @@ class Script(modules.scripts.Script):
         self.unlen = []
         self.contokens = []   
         self.untokens = []
+        self.strengths = None
+        self.unstrengths = None
         self.hr = False
         self.x = None
 
@@ -247,8 +249,7 @@ class Script(modules.scripts.Script):
                     strength.extend([target[1]]*(cond_data.shape[0]-8))
                 conds = torch.cat(conds,0).unsqueeze(0)
                 conds = conds.repeat(self.batch,1,1)
-                self.strength = strength
-                return conds, conds.shape[1]
+                return conds, conds.shape[1], strength
                 
             for target in targets:
                 strength = []
@@ -281,10 +282,10 @@ class Script(modules.scripts.Script):
                     regionconds = []
                     for region, targets in regions:
                         if targets:
-                            conds, contokens = conddealer(targets)
-                            regionconds.append([region, conds, contokens])
+                            conds, contokens, strengths = conddealer(targets)
+                            regionconds.append([region, conds, contokens, strengths])
                         else:
-                            regionconds.append([region, None, None])
+                            regionconds.append([region, None, None, None])
                     stepconds.append([step,regionconds])
                 outconds.append(stepconds)
             return outconds
@@ -351,36 +352,48 @@ class Script(modules.scripts.Script):
             if self.x is None: self.x = params.x.shape
             if self.x != params.x.shape: self.hr = True
 
+            total_steps = max(params.total_sampling_steps, params.denoiser.total_steps)
+            actual_total_steps = total_steps - max(total_steps // params.denoiser.steps - 1, 0)
+            current_step = min(max(params.sampling_step, params.denoiser.step), actual_total_steps - 1)
+            # or we could just use params.denoiser.step :)
+
             self.latenti = 0 
 
             condslist = []
             tokenslist = []
+            strengthslist = []
             conds = self.hr_conds_all if self.hrp and self.hr else  self.conds_all
             if conds is not None:
-                for step, regions in conds[0]:
-                    #print(" ", step,params.sampling_step)
-                    if step >= params.sampling_step + 2:
-                        for region, conds, tokens in regions:
+                for end_step, regions in conds[0]:
+                    if end_step >= current_step + 1:
+                        for region, conds, tokens, strengths in regions:
+                            if conds is None:
+                                continue
                             condslist.append(conds)
                             tokenslist.append(tokens)
-                            if debug: print(f"current:{params.sampling_step + 2},selected:{step}")
+                            strengthslist.append(strengths)
+                            if debug: print(f"current:{params.sampling_step + 2},selected:{end_step}")
                         break
                 self.conds = condslist
                 self.contokens = tokenslist
+                self.strengths = strengthslist
 
             uncondslist = []
             untokenslist = []
+            unstrengthslist = []
             unconds = self.hr_unconds_all if self.hrn and self.hr else  self.unconds_all
             if unconds is not None:
-                for step, regions  in unconds[0]:
-                    if step >= params.sampling_step + 2:
-                        for region, unconds, untokens in regions:
+                for end_step, regions in unconds[0]:
+                    if end_step >= current_step + 1:
+                        for region, unconds, untokens, unstrengths in regions:
                             uncondslist.append(unconds)
                             untokenslist.append(untokens)
+                            unstrengthslist.append(unstrengths)
                             break
 
                 self.unconds = uncondslist
                 self.untokens = untokenslist
+                self.unstrengths = unstrengthslist
                 
             global pn, count
             #pn = False if forge or reforge or classic else True
@@ -792,7 +805,7 @@ def hook_forward_f_z(self, module):
 
         if hook_self.contokens and hook_self.conds[0] is not None:
             start, end = hook_self.orig_tokens, hook_self.orig_tokens + hook_self.conds[0].shape[1]
-            strength_tensor = torch.tensor(hook_self.strength, device=xv.device, dtype=xv.dtype)
+            strength_tensor = torch.tensor(hook_self.strengths, device=xv.device, dtype=xv.dtype)
             strength_tensor = strength_tensor.view(1, -1, 1, 1)
             #print(start,end,strength_tensor)
             xv[:, start:end, :, :] = xv[:, start:end, :, :]*strength_tensor
