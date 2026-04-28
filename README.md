@@ -8,8 +8,8 @@
 Extension for Stable Diffusion web-ui enables negative prompt in prompt
 
 ## Update 2026.04.28
-- support Z-Image in Forge NEO updated to some more current version!
-- 
+- support Z-Image in Forge NEO updated to a more current version.
+- ...with prompt editing!
 ## Update 2025.11.30.0100(JST)
 - support Z-Image in Forge NEO
 
