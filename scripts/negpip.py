@@ -52,7 +52,7 @@ active_i = "Active" if startup_i else "Not Active"
 opt_active = getattr(shared.opts,OPT_ACT, True)
 opt_hideui = getattr(shared.opts,OPT_HIDE, False)
 
-minusgetter = r'\(([^(:)]*):\s*-[\d]+(\.[\d]+)?(?:\s*)\)'
+minusgetter = r'\(([^(:)]*):\s*-[\d]*+(\.[\d]+)?(?:\s*)\)'
 
 COND_KEY_C = "crossattn"
 COND_KEY_V = "vector"
