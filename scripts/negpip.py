@@ -391,7 +391,7 @@ class Script(modules.scripts.Script):
             self.orig_tokens = params.text_cond[COND_KEY_C].shape[1]
             params.text_cond[COND_KEY_C] = torch.cat([params.text_cond[COND_KEY_C],self.conds[0]],1)
 
-        if self.modeltype == "ZImage" and self.conds:
+        if self.modeltype == "ZImage" and self.conds and self.conds[0] is not None:
             self.orig_tokens = params.text_cond.shape[1] - 5
             params.text_cond = torch.cat([params.text_cond[:,:-5,:],self.conds[0],params.text_cond[:,-5:,:]],1)
             
@@ -790,7 +790,7 @@ def hook_forward_f_z(self, module):
         xk = xk.view(bsz, seqlen, module.n_local_kv_heads, module.head_dim)
         xv = xv.view(bsz, seqlen, module.n_local_kv_heads, module.head_dim)
 
-        if hook_self.contokens:
+        if hook_self.contokens and hook_self.conds[0] is not None:
             start, end = hook_self.orig_tokens, hook_self.orig_tokens + hook_self.conds[0].shape[1]
             strength_tensor = torch.tensor(hook_self.strength, device=xv.device, dtype=xv.dtype)
             strength_tensor = strength_tensor.view(1, -1, 1, 1)
