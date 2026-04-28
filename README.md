@@ -1,4 +1,4 @@
-# NegPiP - Negative Prompt in Prompt
+# NegPiP - Negative Prompt in Prompt (for ZImage in Neo)
 [<img src="https://img.shields.io/badge/lang-Egnlish-blue.svg?style=plastic" height="25" />](README.md)
 [<img src="https://img.shields.io/badge/言語-日本語-green.svg?style=plastic" height="25" />](README_jp.md)
 [<img src="https://img.shields.io/badge/语言-中文-red.svg?style=plastic" height="25" />](README_cn.md)
@@ -7,6 +7,9 @@
 
 Extension for Stable Diffusion web-ui enables negative prompt in prompt
 
+## Update 2026.04.28
+- support Z-Image in Forge NEO updated to some more current version!
+- 
 ## Update 2025.11.30.0100(JST)
 - support Z-Image in Forge NEO
 
