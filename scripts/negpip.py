@@ -69,7 +69,6 @@ class Script(modules.scripts.Script):
         self.strengths = None
         self.unstrengths = None
         self.hr = False
-        self.x = None
 
         self.ipa = None
 
@@ -346,12 +345,13 @@ class Script(modules.scripts.Script):
         self.conds_all = None
         self.unconds_all = None
        
+    def before_hr(self, p, enabled, *args):
+        self.hr = True
+        
     def denoiser_callback(self, params: CFGDenoiserParams):
         if debug: print("denoiser_callback",params.sampling_step, params.text_cond.shape)
         if self.active:
-            if self.x is None: self.x = params.x.shape
-            if self.x != params.x.shape: self.hr = True
-
+            
             total_steps = max(params.total_sampling_steps, params.denoiser.total_steps)
             actual_total_steps = total_steps - max(total_steps // params.denoiser.steps - 1, 0)
             current_step = min(max(params.sampling_step, params.denoiser.step), actual_total_steps - 1)
