@@ -128,17 +128,7 @@ class Script(modules.scripts.Script):
 
         self.active = active
         self.batch = p.batch_size
-        # old call, hasattr(shared.sd_model,"conditioner"), no longer works on forge backend, but forge backend provides its own way to do this.
         self.isxl = p.sd_model.is_sdxl
-        
-        # if you want to change other things to be more mnemonic to the current backend, here's the pprint calls i used to figure all this out in my initial port.
-        # lllyasviel should really document this stuff. it's a nice backend! but he hasn't told any of us how to use it.
-        #pprint(dir(p))
-        #pprint(dir(p.sd_model))
-        #pprint(dir(p.sd_model.forge_objects.unet))
-        #pprint(dir(p.sd_model.forge_objects.clip))
-        #pprint(dir(p.sd_model.forge_objects.clip.tokenizer))
-        #pprint(p.sd_model.is_sdxl)
         
         self.rev = p.sampler_name in ["DDIM", "PLMS", "UniPC"]
         if forge or reforge or classic: self.rev =  not self.rev 
@@ -148,11 +138,6 @@ class Script(modules.scripts.Script):
             if type(p.sd_model).__name__ == "ZImage":
                 tokenizer = p.sd_model.text_processing_engine_gemma.tokenize_line
                 self.modeltype = modeltype = "ZImage"
-                input = SdConditioning([""], width=p.width, height=p.height)
-                # p.sd_model.text_processing_engine_gemma(input)
-                # this, because this one does device management automatically.
-                # but seems to cause too much model-moving.
-                p.sd_model.get_learned_conditioning(input)
             elif hasattr(p.sd_model, "text_processing_engine_l"):
                 tokenizer = p.sd_model.text_processing_engine_l.tokenize_line
             else:
@@ -803,11 +788,12 @@ def hook_forward_f_z(self, module):
         xk = xk.view(bsz, seqlen, module.n_local_kv_heads, module.head_dim)
         xv = xv.view(bsz, seqlen, module.n_local_kv_heads, module.head_dim)
 
-        if hook_self.contokens and hook_self.conds[0] is not None:
+        is_uncond = transformer_options.get("cond_or_uncond", [0])[0] == 1
+        # TODO : Fix negpip in neg prompt
+        if hook_self.contokens and hook_self.conds[0] is not None and not is_uncond:
             start, end = hook_self.orig_tokens, hook_self.orig_tokens + hook_self.conds[0].shape[1]
             strength_tensor = torch.tensor(hook_self.strengths, device=xv.device, dtype=xv.dtype)
             strength_tensor = strength_tensor.view(1, -1, 1, 1)
-            #print(start,end,strength_tensor)
             xv[:, start:end, :, :] = xv[:, start:end, :, :]*strength_tensor
 
         xq = module.q_norm(xq)
